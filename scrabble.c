@@ -79,6 +79,9 @@ int main(int argc, char* argv[]) {
         {1, 0, 0, 4, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 1}
     };
 
+    // Variable pour la somme totale des points de tous les mots ajoutés
+    int totalPoints = 0;
+
     // Initialisation de SDL et SDL_ttf
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "Erreur SDL_Init: %s\n", SDL_GetError());
@@ -134,7 +137,7 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return EXIT_FAILURE;
     }
-    TTF_Font *valueFont = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12);
+    TTF_Font *valueFont = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 10);
     if (!valueFont) {
         fprintf(stderr, "Erreur TTF_OpenFont (valueFont): %s\n", TTF_GetError());
         TTF_CloseFont(inputFont);
@@ -214,6 +217,7 @@ int main(int argc, char* argv[]) {
                             else if (bonus == 1) letterScore *= 3;
                             else if (bonus == 2) letterScore *= 2;
                             lastWordScore = letterScore;
+                            totalPoints += letterScore; // Ajout au total
                             board[selectedCellY][selectedCellX] = inputBuffer[0];
                             currentState = STATE_IDLE;
                         }
@@ -262,6 +266,7 @@ int main(int argc, char* argv[]) {
                                 }
                                 computedScore *= wordMultiplier;
                                 lastWordScore = computedScore;
+                                totalPoints += computedScore; // Ajout au total
                             }
                         }
                         else if (dir == 'v') {
@@ -288,6 +293,7 @@ int main(int argc, char* argv[]) {
                                 }
                                 computedScore *= wordMultiplier;
                                 lastWordScore = computedScore;
+                                totalPoints += computedScore; // Ajout au total
                             }
                         }
                         currentState = STATE_IDLE;
@@ -398,6 +404,7 @@ int main(int argc, char* argv[]) {
                         SDL_FreeSurface(textSurface);
                     }
                     // Affichage de la valeur de la lettre dans le coin inférieur droit (avec valueFont, taille réduite)
+                    // Affichage de la valeur de la lettre dans le coin inférieur droit (avec valueFont, taille réduite)
                     char valueText[4];
                     sprintf(valueText, "%d", getLetterScore(letter));
                     SDL_Surface *valueSurface = TTF_RenderText_Blended(valueFont, valueText, TEXT_COLOR);
@@ -446,7 +453,7 @@ int main(int argc, char* argv[]) {
             SDL_FreeSurface(promptSurface);
         }
         
-        // 5. Affichage du score dans le coin supérieur droit
+        // 5. Affichage du score du dernier mot dans le coin supérieur droit
         char scoreText[50];
         snprintf(scoreText, sizeof(scoreText), "Points: %d", lastWordScore);
         SDL_Surface *scoreSurface = TTF_RenderText_Blended(boardFont, scoreText, TEXT_COLOR);
@@ -460,6 +467,22 @@ int main(int argc, char* argv[]) {
             SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreRect);
             SDL_DestroyTexture(scoreTexture);
             SDL_FreeSurface(scoreSurface);
+        }
+        
+        // 6. Nouvelle fonctionnalité : Affichage du total des points (de tous les mots ajoutés) en haut à gauche
+        char totalText[50];
+        snprintf(totalText, sizeof(totalText), "Total: %d", totalPoints);
+        SDL_Surface *totalSurface = TTF_RenderText_Blended(boardFont, totalText, TEXT_COLOR);
+        if (totalSurface) {
+            SDL_Texture *totalTexture = SDL_CreateTextureFromSurface(renderer, totalSurface);
+            int totalW, totalH;
+            SDL_QueryTexture(totalTexture, NULL, NULL, &totalW, &totalH);
+            int posX_total = 10;
+            int posY_total = 10;
+            SDL_Rect totalRect = { posX_total, posY_total, totalW, totalH };
+            SDL_RenderCopy(renderer, totalTexture, NULL, &totalRect);
+            SDL_DestroyTexture(totalTexture);
+            SDL_FreeSurface(totalSurface);
         }
         
         SDL_RenderPresent(renderer);
