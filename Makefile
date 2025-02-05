@@ -16,7 +16,7 @@ all: $(TARGET)
 
 # Compilation de l'exécutable
 $(TARGET): $(SRC)
-	$(CC) $(CFLAGS) $(SRC) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(SRC) -o $(TARGET) $(LDFLAGS) -lm
 
 # Nettoyage des fichiers objets et de l'exécutable
 clean:
