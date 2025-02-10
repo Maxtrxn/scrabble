@@ -30,6 +30,8 @@ typedef enum {
     STATE_INPUT_DIRECTION
 } InputState;
 
+// --- Fonctions pour le Scrabble ---
+
 // Retourne le score d'une lettre (en majuscule)
 int getLetterScore(char letter) {
     letter = toupper(letter);
@@ -125,8 +127,96 @@ void placeWord(const char *word, int startX, int startY, char dir,
     }
 }
 
+// --- Fonctions pour la gestion du dictionnaire avec recherche dichotomique ---
+
+// Comparaison insensible à la casse utilisée pour le tri
+int caseInsensitiveCompare(const void *a, const void *b) {
+    const char *str1 = *(const char **)a;
+    const char *str2 = *(const char **)b;
+    return strcasecmp(str1, str2);
+}
+
+// Charge le dictionnaire depuis le fichier "mot_filtrés.txt" et retourne un tableau de chaînes trié.
+// Le nombre de mots chargés est retourné dans outCount.
+char **loadDictionary(const char *filename, int *outCount) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        fprintf(stderr, "Erreur d'ouverture du fichier %s\n", filename);
+        return NULL;
+    }
+    int capacity = 100;
+    int count = 0;
+    char **words = malloc(capacity * sizeof(char *));
+    if (!words) {
+        fclose(fp);
+        return NULL;
+    }
+    char buffer[100];
+    while (fgets(buffer, sizeof(buffer), fp)) {
+        buffer[strcspn(buffer, "\n")] = '\0'; // Supprime le saut de ligne
+        words[count] = strdup(buffer);
+        if (!words[count]) {
+            // En cas d'erreur, libérer la mémoire allouée
+            for (int i = 0; i < count; i++)
+                free(words[i]);
+            free(words);
+            fclose(fp);
+            return NULL;
+        }
+        count++;
+        if (count >= capacity) {
+            capacity *= 2;
+            char **temp = realloc(words, capacity * sizeof(char *));
+            if (!temp) {
+                for (int i = 0; i < count; i++)
+                    free(words[i]);
+                free(words);
+                fclose(fp);
+                return NULL;
+            }
+            words = temp;
+        }
+    }
+    fclose(fp);
+    // Trie le tableau de mots de manière insensible à la casse
+    qsort(words, count, sizeof(char *), caseInsensitiveCompare);
+    *outCount = count;
+    return words;
+}
+
+// Recherche dichotomique dans le tableau trié
+int binarySearch(char **array, int size, const char *target) {
+    int low = 0;
+    int high = size - 1;
+    while (low <= high) {
+        int mid = (low + high) / 2;
+        int cmp = strcasecmp(array[mid], target);
+        if (cmp == 0)
+            return mid;  // Trouvé
+        else if (cmp < 0)
+            low = mid + 1;
+        else
+            high = mid - 1;
+    }
+    return -1; // Non trouvé
+}
+
+// Vérifie si le mot est valide en recherchant dans le dictionnaire chargé
+bool isValidWordBinary(const char *word, char **dictionary, int dictionaryCount) {
+    return binarySearch(dictionary, dictionaryCount, word) >= 0;
+}
+
+// --- Programme principal ---
 int main(int argc, char* argv[]) {
     srand(time(NULL));
+
+    // Chargement du dictionnaire (à partir du fichier "mots_filtrés.txt")
+    int dictionaryCount = 0;
+    char **dictionary = loadDictionary("mots_filtrés.txt", &dictionaryCount);
+    if (!dictionary) {
+        fprintf(stderr, "Erreur lors du chargement du dictionnaire.\n");
+        return EXIT_FAILURE;
+    }
 
     int boardSize = 15;
     // Allocation du plateau
@@ -250,7 +340,6 @@ int main(int argc, char* argv[]) {
     InputState currentState = STATE_IDLE;
     char inputBuffer[50] = "";
     int inputLength = 0;
-    char tempWord[50] = "";
     int selectedCellX = -1, selectedCellY = -1;
     int lastWordScore = 0;
 
@@ -264,7 +353,7 @@ int main(int argc, char* argv[]) {
     float cellHeight = (float)boardDrawHeight / boardSize;
     int gridThickness = 2;
 
-    // Zone du rack et bouton reset
+    // Zone du rack et bouton "Echanger"
     int rackAreaWidth = 300;  // Largeur réservée pour le rack
     float rackCellWidth = (float)rackAreaWidth / 7;
     SDL_Surface *btnSurface = TTF_RenderText_Blended(inputFont, "Echanger", TEXT_COLOR);
@@ -335,6 +424,14 @@ int main(int argc, char* argv[]) {
                     else if (e.key.keysym.sym == SDLK_RETURN) {
                         SDL_StopTextInput();
                         if (inputLength == 0) {
+                            currentState = STATE_IDLE;
+                        }
+                        // Utilisation de la recherche dichotomique dans le dictionnaire chargé
+                        else if (!isValidWordBinary(inputBuffer, dictionary, dictionaryCount)) {
+                            // Le mot n'est pas valide : on réinitialise la saisie sans rien placer.
+                            fprintf(stderr, "Mot invalide: %s\n", inputBuffer);
+                            inputBuffer[0] = '\0';
+                            inputLength = 0;
                             currentState = STATE_IDLE;
                         }
                         else if (inputLength == 1) {
@@ -485,9 +582,9 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // 4. Zone du chevalet et bouton reset (centré)
-        int totalRackWidth = rackAreaWidth + buttonMargin + buttonWidth;
-        int startXRack = (WINDOW_WIDTH - totalRackWidth) / 2;
+        // 4. Zone du chevalet et bouton "Echanger" (centré)
+        totalRackWidth = rackAreaWidth + buttonMargin + buttonWidth;
+        startXRack = (WINDOW_WIDTH - totalRackWidth) / 2;
         // Zone du rack
         SDL_Rect rackRect = { startXRack, BOARD_HEIGHT, rackAreaWidth, RACK_HEIGHT };
         SDL_SetRenderDrawColor(renderer, 220, 220, 220, 255);
@@ -534,7 +631,7 @@ int main(int argc, char* argv[]) {
                 SDL_FreeSurface(valueSurface);
             }
         }
-        // Bouton reset
+        // Bouton "Echanger"
         int buttonX = startXRack + rackAreaWidth + buttonMargin;
         int buttonY = BOARD_HEIGHT + (RACK_HEIGHT - buttonHeight) / 2;
         SDL_Rect buttonRect = { buttonX, buttonY, buttonWidth, buttonHeight };
@@ -558,7 +655,12 @@ int main(int argc, char* argv[]) {
         SDL_RenderFillRect(renderer, &inputRect);
         char displayText[100];
         if (currentState == STATE_IDLE) {
-            snprintf(displayText, sizeof(displayText), "Entrez un mot (premier mot déjà sur la case centrale)");
+            snprintf(displayText, sizeof(displayText), "Entrez un mot (premier mot d%cj%c sur la case centrale)",130,133);
+            /* 130 = é
+              133 = à
+              138 = è
+              135 = ç
+              136 = ê  */
         }
         else if (currentState == STATE_INPUT_TEXT) {
             snprintf(displayText, sizeof(displayText), "Entrez un mot: %s", inputBuffer);
@@ -651,10 +753,16 @@ int main(int argc, char* argv[]) {
         SDL_Delay(16);
     }
 
-    // Libération de la mémoire
+    // Libération de la mémoire du plateau
     for (int i = 0; i < boardSize; i++)
         free(board[i]);
     free(board);
+
+    // Libération de la mémoire du dictionnaire
+    for (int i = 0; i < dictionaryCount; i++) {
+        free(dictionary[i]);
+    }
+    free(dictionary);
 
     TTF_CloseFont(valueFont);
     TTF_CloseFont(inputFont);
@@ -666,4 +774,3 @@ int main(int argc, char* argv[]) {
     SDL_Quit();
     return EXIT_SUCCESS;
 }
-
