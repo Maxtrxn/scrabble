@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
 
     // Chargement du dictionnaire (à partir du fichier "mots_filtrés.txt")
     int dictionaryCount = 0;
-    char **dictionary = loadDictionary("mots_filtrés.txt", &dictionaryCount);
+    char **dictionary = loadDictionary("mots_filtres.txt", &dictionaryCount);
     if (!dictionary) {
         fprintf(stderr, "Erreur lors du chargement du dictionnaire.\n");
         return EXIT_FAILURE;
