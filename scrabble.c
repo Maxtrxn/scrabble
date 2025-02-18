@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L  // Activer les extensions POSIX, nécessaire pour strdup
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
@@ -35,12 +37,18 @@ typedef enum {
 // Retourne le score d'une lettre (en majuscule)
 int getLetterScore(char letter) {
     letter = toupper(letter);
-    if (strchr("AEILNORSTU", letter)) return 1;
-    else if (strchr("DGM", letter)) return 2;
-    else if (strchr("BCP", letter)) return 3;
-    else if (strchr("FHV", letter)) return 4;
-    else if (strchr("JQ", letter)) return 8;
-    else if (strchr("KWXYZ", letter)) return 10;
+    if (strchr("AEILNORSTU", letter))
+        return 1;
+    else if (strchr("DGM", letter))
+        return 2;
+    else if (strchr("BCP", letter))
+        return 3;
+    else if (strchr("FHV", letter))
+        return 4;
+    else if (strchr("JQ", letter))
+        return 8;
+    else if (strchr("KWXYZ", letter))
+        return 10;
     return 0;
 }
 
@@ -82,7 +90,10 @@ bool canPlaceWord(const char *word, int startX, int startY, char dir,
     int len = strlen(word);
     for (int i = 0; i < len; i++) {
         int x = startX, y = startY;
-        if (dir == 'h') x += i; else y += i;
+        if (dir == 'h')
+            x += i;
+        else
+            y += i;
         if (x < 0 || x >= boardSize || y < 0 || y >= boardSize)
             return false;
         char boardLetter = board[y][x];
@@ -109,11 +120,14 @@ bool canPlaceWord(const char *word, int startX, int startY, char dir,
 // Place le mot sur le plateau à partir de (startX, startY) dans la direction dir ('h' ou 'v').
 // Pour chaque case vide, la lettre est placée et la lettre correspondante est consommée du rack.
 void placeWord(const char *word, int startX, int startY, char dir,
-               char **board, int boardSize, char *rack) {
+               char **board, char *rack) {
     int len = strlen(word);
     for (int i = 0; i < len; i++) {
         int x = startX, y = startY;
-        if (dir == 'h') x += i; else y += i;
+        if (dir == 'h')
+            x += i;
+        else
+            y += i;
         if (board[y][x] == ' ') {
             board[y][x] = toupper(word[i]);
             // Consomme la lettre du rack uniquement pour les cases vides
@@ -136,7 +150,7 @@ int caseInsensitiveCompare(const void *a, const void *b) {
     return strcasecmp(str1, str2);
 }
 
-// Charge le dictionnaire depuis le fichier "mot_filtrés.txt" et retourne un tableau de chaînes trié.
+// Charge le dictionnaire depuis le fichier "mots_filtrés.txt" et retourne un tableau de chaînes trié.
 // Le nombre de mots chargés est retourné dans outCount.
 char **loadDictionary(const char *filename, int *outCount) {
     FILE *fp = fopen(filename, "r");
@@ -208,6 +222,9 @@ bool isValidWordBinary(const char *word, char **dictionary, int dictionaryCount)
 
 // --- Programme principal ---
 int main(int argc, char* argv[]) {
+    (void)argc;  // Paramètre non utilisé
+    (void)argv;  // Paramètre non utilisé
+
     srand(time(NULL));
 
     // Chargement du dictionnaire (à partir du fichier "mots_filtrés.txt")
@@ -355,7 +372,11 @@ int main(int argc, char* argv[]) {
 
     // Zone du rack et bouton "Echanger"
     int rackAreaWidth = 300;  // Largeur réservée pour le rack
+    /* La variable rackCellWidth est calculée mais non utilisée ; on peut soit la supprimer,
+       soit la laisser en sachant qu'elle génère un avertissement.
+       Ici, nous la laissons et supprimons l'avertissement en la "consommant" : */
     float rackCellWidth = (float)rackAreaWidth / 7;
+    (void)rackCellWidth;  // Supprime l'avertissement
     SDL_Surface *btnSurface = TTF_RenderText_Blended(inputFont, "Echanger", TEXT_COLOR);
     int btnW, btnH;
     SDL_Texture *tempTex = SDL_CreateTextureFromSurface(renderer, btnSurface);
@@ -437,7 +458,7 @@ int main(int argc, char* argv[]) {
                         else if (inputLength == 1) {
                             // Pour un mot d'une seule lettre, on suppose l'orientation horizontale par défaut.
                             if (canPlaceWord(inputBuffer, selectedCellX, selectedCellY, 'h', board, boardSize, rack, totalPoints)) {
-                                placeWord(inputBuffer, selectedCellX, selectedCellY, 'h', board, boardSize, rack);
+                                placeWord(inputBuffer, selectedCellX, selectedCellY, 'h', board, rack);
                                 int letterScore = getLetterScore(inputBuffer[0]);
                                 lastWordScore = letterScore;
                                 totalPoints += letterScore;
@@ -460,12 +481,15 @@ int main(int argc, char* argv[]) {
                     char dir = tolower((char)e.key.keysym.sym);
                     if (dir == 'h' || dir == 'v') {
                         if (canPlaceWord(inputBuffer, selectedCellX, selectedCellY, dir, board, boardSize, rack, totalPoints)) {
-                            placeWord(inputBuffer, selectedCellX, selectedCellY, dir, board, boardSize, rack);
+                            placeWord(inputBuffer, selectedCellX, selectedCellY, dir, board, rack);
                             int score = 0;
                             int len = strlen(inputBuffer);
                             for (int i = 0; i < len; i++) {
                                 int x = selectedCellX, y = selectedCellY;
-                                if (dir == 'h') x += i; else y += i;
+                                if (dir == 'h')
+                                    x += i;
+                                else
+                                    y += i;
                                 if (board[y][x] == toupper(inputBuffer[i])) {
                                     score += getLetterScore(inputBuffer[i]);
                                 }
@@ -655,12 +679,7 @@ int main(int argc, char* argv[]) {
         SDL_RenderFillRect(renderer, &inputRect);
         char displayText[100];
         if (currentState == STATE_IDLE) {
-            snprintf(displayText, sizeof(displayText), "Entrez un mot (premier mot d%cj%c sur la case centrale)",130,133);
-            /* 130 = é
-              133 = à
-              138 = è
-              135 = ç
-              136 = ê  */
+            snprintf(displayText, sizeof(displayText), "Entrez un mot (premier mot d%cj%c sur la case centrale)", 130, 133);
         }
         else if (currentState == STATE_INPUT_TEXT) {
             snprintf(displayText, sizeof(displayText), "Entrez un mot: %s", inputBuffer);
