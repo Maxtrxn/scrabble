@@ -20,6 +20,7 @@
 
 // Dimensions des zones de jeu dans la fenêtre
 #define BOARD_HEIGHT      800                        // Hauteur de la zone du plateau
+#undef SCRABBLE_RACK_HEIGHT
 #define SCRABBLE_RACK_HEIGHT       50
 #define INPUT_AREA_HEIGHT (WINDOW_HEIGHT - BOARD_HEIGHT - SCRABBLE_RACK_HEIGHT) // Hauteur de la zone de saisie
 
@@ -29,7 +30,7 @@
 // Définition de quelques couleurs utilisées (format RGBA)
 static SDL_Color BACKGROUND_COLOR = {255, 255, 255, 255};  // Blanc pour le fond général
 static SDL_Color GRID_COLOR       = {255, 255, 255, 255};  // Blanc pour les lignes de grille (peut être modifié)
-static SDL_Color TEXT_COLOR       = {80, 80, 80, 255};        // Noir pour le texte
+static SDL_Color TEXT_COLOR       = {0, 0, 0, 255};        // Noir pour le texte
 static SDL_Color INPUT_BG_COLOR   = {200, 200, 200, 255};  // Gris clair pour la zone de saisie
 
 // Définition d'un type énuméré pour gérer l'état de saisie utilisateur
@@ -57,31 +58,20 @@ typedef enum {
 int getLetterScore(char letter) {
     // Convertit la lettre en majuscule
     letter = toupper(letter);
-
-    // Utilisation de switch case pour une bonne lisibilité et performance
-    switch (letter) {
-        case 'A': case 'E': case 'I': case 'L': case 'N':
-        case 'O': case 'R': case 'S': case 'T': case 'U':
-            return 1;
-
-        case 'D': case 'G': case 'M':
-            return 2;
-
-        case 'B': case 'C': case 'P':
-            return 3;
-
-        case 'F': case 'H': case 'V':
-            return 4;
-
-        case 'J': case 'Q':
-            return 8;
-
-        case 'K': case 'W': case 'X': case 'Y': case 'Z':
-            return 10;
-
-        default:
-            return 0; // Retourne 0 si la lettre n'est pas valide
-    }
+    // Vérifie dans quelle catégorie se trouve la lettre et retourne le score associé
+    if (strchr("AEILNORSTU", letter))
+        return 1;
+    else if (strchr("DGM", letter))
+        return 2;
+    else if (strchr("BCP", letter))
+        return 3;
+    else if (strchr("FHV", letter))
+        return 4;
+    else if (strchr("JQ", letter))
+        return 8;
+    else if (strchr("KWXYZ", letter))
+        return 10;
+    return 0; // Retourne 0 par défaut (si la lettre n'est pas reconnue)
 }
 
 /*
@@ -147,9 +137,9 @@ char drawRandomLetter() {
  */
 bool canPlaceWord(const char *word, int startX, int startY, char dir,
                   char **board, int boardSize, const char *rack, int totalPoints) {
-    bool intersects = false;           // Indique si le mot croise (ou touche) une lettre déjà présente
+    bool intersects = false;           // Indique si le mot croise une lettre déjà présente
     bool passesThroughCenter = false;  // Indique si le mot passe par la case centrale
-    int freq[26] = {0};                // Occurrences des lettres disponibles sur le rack
+    int freq[26] = {0};                // Tableau pour compter les occurrences de chaque lettre dans le rack
 
     // Remplit le tableau de fréquences avec les lettres du rack (en majuscules)
     for (int i = 0; i < 7; i++) {
@@ -159,17 +149,7 @@ bool canPlaceWord(const char *word, int startX, int startY, char dir,
     }
 
     int len = strlen(word);
-
-    // Vérifie la case immédiatement avant le début du mot (si elle existe)
-    if (dir == 'h') {
-        if (startX > 0 && board[startY][startX - 1] != ' ')
-            return false;
-    } else { // placement vertical
-        if (startY > 0 && board[startY - 1][startX] != ' ')
-            return false;
-    }
-
-    // Parcourt chaque lettre du mot à placer
+    // Parcours chaque lettre du mot
     for (int i = 0; i < len; i++) {
         int x = startX, y = startY;
         // Calcule la position de la lettre selon la direction
@@ -178,31 +158,18 @@ bool canPlaceWord(const char *word, int startX, int startY, char dir,
         else
             y += i;
 
-        // Vérifie que la position est bien dans les limites du plateau
+        // Vérifie que la position reste dans les limites du plateau
         if (x < 0 || x >= boardSize || y < 0 || y >= boardSize)
             return false;
 
-        char boardLetter = board[y][x];         // Lettre déjà présente sur le plateau (si non vide)
+        char boardLetter = board[y][x];         // Lettre déjà présente sur le plateau
         char wordLetter = toupper(word[i]);       // Lettre du mot en majuscule
 
         if (boardLetter == ' ') {
-            // Si la case est vide, on doit avoir la lettre sur le rack
+            // Si la case est vide, vérifie que le rack contient la lettre
             if (freq[wordLetter - 'A'] <= 0)
                 return false;
             freq[wordLetter - 'A']--;  // Consomme une occurrence de la lettre
-
-            // Vérifie les connexions perpendiculaires
-            if (dir == 'h') {
-                // Pour une pose horizontale, regarde au-dessus et en-dessous
-                if ((y > 0 && board[y - 1][x] != ' ') ||
-                    (y < boardSize - 1 && board[y + 1][x] != ' '))
-                    intersects = true;
-            } else { // placement vertical
-                // Pour une pose verticale, regarde à gauche et à droite
-                if ((x > 0 && board[y][x - 1] != ' ') ||
-                    (x < boardSize - 1 && board[y][x + 1] != ' '))
-                    intersects = true;
-            }
         } else {
             // Si la case n'est pas vide, la lettre doit correspondre
             if (toupper(boardLetter) != wordLetter)
@@ -213,25 +180,12 @@ bool canPlaceWord(const char *word, int startX, int startY, char dir,
         if (x == boardSize / 2 && y == boardSize / 2)
             passesThroughCenter = true;
     }
-
-    // Vérifie la case immédiatement après la fin du mot (si elle existe)
-    if (dir == 'h') {
-        int endX = startX + len;
-        if (endX < boardSize && board[startY][endX] != ' ')
-            return false;
-    } else { // placement vertical
-        int endY = startY + len;
-        if (endY < boardSize && board[endY][startX] != ' ')
-            return false;
-    }
-
-    // Pour un coup ultérieur, le mot doit toucher au moins une lettre déjà présente
+    // Pour un coup ultérieur, le mot doit croiser au moins une lettre déjà placée
     if (totalPoints > 0 && !intersects)
         return false;
     // Pour le premier coup, le mot doit passer par la case centrale
     if (totalPoints == 0 && !passesThroughCenter)
         return false;
-
     return true;
 }
 
@@ -656,7 +610,7 @@ void drawBoard(SDL_Renderer *renderer, TTF_Font *boardFont, TTF_Font *valueFont,
             if (letter != ' ') {
                 // Prépare la chaîne contenant la lettre
                 char text[2] = { letter, '\0' };
-                SDL_Surface *textSurface = TTF_RenderUTF8_Blended(boardFont, text, TEXT_COLOR);
+                SDL_Surface *textSurface = TTF_RenderText_Blended(boardFont, text, TEXT_COLOR);
                 if (textSurface) {
                     SDL_Texture *textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
                     int textW, textH;
@@ -671,7 +625,7 @@ void drawBoard(SDL_Renderer *renderer, TTF_Font *boardFont, TTF_Font *valueFont,
                 // Prépare la chaîne affichant la valeur de la lettre
                 char valueText[4];
                 sprintf(valueText, "%d", getLetterScore(letter));
-                SDL_Surface *valueSurface = TTF_RenderUTF8_Blended(valueFont, valueText, TEXT_COLOR);
+                SDL_Surface *valueSurface = TTF_RenderText_Blended(valueFont, valueText, TEXT_COLOR);
                 if (valueSurface) {
                     SDL_Texture *valueTexture = SDL_CreateTextureFromSurface(renderer, valueSurface);
                     int valueW, valueH;
@@ -729,7 +683,7 @@ void drawRack(SDL_Renderer *renderer, TTF_Font *rackFont, TTF_Font *valueFont,
         SDL_RenderFillRect(renderer, &tileRect);
         // Dessine la lettre du jeton
         char letter[2] = { rack[i], '\0' };
-        SDL_Surface *rackSurface = TTF_RenderUTF8_Blended(rackFont, letter, TEXT_COLOR);
+        SDL_Surface *rackSurface = TTF_RenderText_Blended(rackFont, letter, TEXT_COLOR);
         if (rackSurface) {
             SDL_Texture *rackTexture = SDL_CreateTextureFromSurface(renderer, rackSurface);
             int rackW, rackH;
@@ -744,7 +698,7 @@ void drawRack(SDL_Renderer *renderer, TTF_Font *rackFont, TTF_Font *valueFont,
         // Dessine la valeur de la lettre dans le coin inférieur droit du jeton
         char valueText[4];
         sprintf(valueText, "%d", getLetterScore(rack[i]));
-        SDL_Surface *valueSurface = TTF_RenderUTF8_Blended(valueFont, valueText, TEXT_COLOR);
+        SDL_Surface *valueSurface = TTF_RenderText_Blended(valueFont, valueText, TEXT_COLOR);
         if (valueSurface) {
             SDL_Texture *valueTexture = SDL_CreateTextureFromSurface(renderer, valueSurface);
             int valueW, valueH;
@@ -763,7 +717,7 @@ void drawRack(SDL_Renderer *renderer, TTF_Font *rackFont, TTF_Font *valueFont,
     SDL_Rect buttonRect = { buttonX, buttonY, buttonWidth, buttonHeight };
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Rouge pour le bouton
     SDL_RenderFillRect(renderer, &buttonRect);
-    SDL_Surface *btnSurface = TTF_RenderUTF8_Blended(inputFont, "Echanger", TEXT_COLOR);
+    SDL_Surface *btnSurface = TTF_RenderText_Blended(inputFont, "Echanger", TEXT_COLOR);
     if (btnSurface) {
         SDL_Texture *btnTexture = SDL_CreateTextureFromSurface(renderer, btnSurface);
         int btnW, btnH;
@@ -807,7 +761,7 @@ void drawInputArea(SDL_Renderer *renderer, TTF_Font *inputFont, InputState curre
         snprintf(displayText, sizeof(displayText), "Entrez la direction (h/v): ");
     }
     // Rend le texte de l'invite dans la zone de saisie
-    SDL_Surface *promptSurface = TTF_RenderUTF8_Blended(inputFont, displayText, TEXT_COLOR);
+    SDL_Surface *promptSurface = TTF_RenderText_Blended(inputFont, displayText, TEXT_COLOR);
     if (promptSurface) {
         SDL_Texture *promptTexture = SDL_CreateTextureFromSurface(renderer, promptSurface);
         int textW, textH;
@@ -985,7 +939,7 @@ int main(int argc, char* argv[]) {
     int rackAreaWidth = 300;
     float rackCellWidth = (float)rackAreaWidth / 7;
     (void)rackCellWidth; // Variable inutilisée dans la suite
-    SDL_Surface *btnSurface = TTF_RenderUTF8_Blended(inputFont, "Echanger", TEXT_COLOR);
+    SDL_Surface *btnSurface = TTF_RenderText_Blended(inputFont, "Echanger", TEXT_COLOR);
     int btnW, btnH;
     SDL_Texture *tempTex = SDL_CreateTextureFromSurface(renderer, btnSurface);
     SDL_QueryTexture(tempTex, NULL, NULL, &btnW, &btnH);
@@ -1186,7 +1140,7 @@ int main(int argc, char* argv[]) {
         {
             char scoreText[50];
             snprintf(scoreText, sizeof(scoreText), "Points: %d", lastWordScore);
-            SDL_Surface *scoreSurface = TTF_RenderUTF8_Blended(boardFont, scoreText, TEXT_COLOR);
+            SDL_Surface *scoreSurface = TTF_RenderText_Blended(boardFont, scoreText, TEXT_COLOR);
             if (scoreSurface) {
                 SDL_Texture *scoreTexture = SDL_CreateTextureFromSurface(renderer, scoreSurface);
                 int textW, textH;
@@ -1203,7 +1157,7 @@ int main(int argc, char* argv[]) {
         {
             char totalText[50];
             snprintf(totalText, sizeof(totalText), "Total: %d", totalPoints);
-            SDL_Surface *totalSurface = TTF_RenderUTF8_Blended(boardFont, totalText, TEXT_COLOR);
+            SDL_Surface *totalSurface = TTF_RenderText_Blended(boardFont, totalText, TEXT_COLOR);
             if (totalSurface) {
                 SDL_Texture *totalTexture = SDL_CreateTextureFromSurface(renderer, totalSurface);
                 int totalW, totalH;
@@ -1221,7 +1175,7 @@ int main(int argc, char* argv[]) {
                 char letter = board[y][x];
                 if (letter != ' ') {
                     char text[2] = { letter, '\0' };
-                    SDL_Surface *textSurface = TTF_RenderUTF8_Blended(boardFont, text, TEXT_COLOR);
+                    SDL_Surface *textSurface = TTF_RenderText_Blended(boardFont, text, TEXT_COLOR);
                     if (textSurface) {
                         SDL_Texture *textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
                         int textW, textH;
@@ -1235,7 +1189,7 @@ int main(int argc, char* argv[]) {
                     }
                     char valueText[4];
                     sprintf(valueText, "%d", getLetterScore(letter));
-                    SDL_Surface *valueSurface = TTF_RenderUTF8_Blended(valueFont, valueText, TEXT_COLOR);
+                    SDL_Surface *valueSurface = TTF_RenderText_Blended(valueFont, valueText, TEXT_COLOR);
                     if (valueSurface) {
                         SDL_Texture *valueTexture = SDL_CreateTextureFromSurface(renderer, valueSurface);
                         int valueW, valueH;
