@@ -76,10 +76,14 @@ char drawRandomLetter() {
 // Vérifie si le mot peut être placé à partir de (startX, startY) dans la direction dir ('h' ou 'v'),
 // en utilisant les lettres du rack pour les cases vides et en acceptant celles déjà présentes.
 // Si totalPoints > 0 (après le premier coup), le mot doit intersecter au moins une lettre déjà placée.
-// Pour le premier coup, la case centrale doit être utilisée.
+// Vérifie si le mot peut être placé à partir de (startX, startY) dans la direction dir ('h' ou 'v'),
+// en utilisant les lettres du rack pour les cases vides et en acceptant celles déjà présentes.
+// Si totalPoints > 0 (après le premier coup), le mot doit intersecter au moins une lettre déjà placée.
+// Pour le premier coup, une lettre du mot doit passer par la case centrale.
 bool canPlaceWord(const char *word, int startX, int startY, char dir,
                   char **board, int boardSize, const char *rack, int totalPoints) {
     bool intersects = false;
+    bool passesThroughCenter = false;
     int freq[26] = {0};
     for (int i = 0; i < 7; i++) {
         char c = rack[i];
@@ -106,13 +110,13 @@ bool canPlaceWord(const char *word, int startX, int startY, char dir,
                 return false;
             intersects = true;
         }
+        if (x == boardSize / 2 && y == boardSize / 2)
+            passesThroughCenter = true;
     }
     if (totalPoints > 0 && !intersects)
         return false;
-    if (totalPoints == 0) {
-        if (startX != boardSize / 2 || startY != boardSize / 2)
-            return false;
-    }
+    if (totalPoints == 0 && !passesThroughCenter)
+        return false;
     return true;
 }
 
