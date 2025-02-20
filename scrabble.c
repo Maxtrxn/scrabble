@@ -13,6 +13,7 @@
 #include <ctype.h>    // Pour toupper, tolower
 #include <math.h>     // Pour round, etc.
 #include <time.h>     // Pour time (initialisation du générateur de nombres aléatoires)
+#include "uthash.h"   // Pour la table de hachage.
 
 // Définition des dimensions de la fenêtre principale
 #define WINDOW_WIDTH      800
@@ -38,6 +39,13 @@ typedef enum {
     STATE_INPUT_TEXT,       // L'utilisateur saisit un mot
     STATE_INPUT_DIRECTION   // L'utilisateur doit saisir la direction (h/v) pour placer un mot de plusieurs lettres
 } InputState;
+
+//Type pour la gestion du dictionnaire.
+typedef struct {
+    char word[100];  // Adapte la taille selon tes besoins
+    UT_hash_handle hh;
+} DictionaryEntry;
+
 
 //
 // ---------------------- Fonctions pour le Scrabble --------------------------
@@ -281,132 +289,80 @@ void placeWord(const char *word, int startX, int startY, char dir,
 // --------------------- Fonctions de gestion du dictionnaire ------------------
 //
 
-/*
- * Fonction : caseInsensitiveCompare
- * -----------------------------------
- * Fonction de comparaison insensible à la casse utilisée pour trier le dictionnaire.
- *
- * Paramètres :
- *   a, b : pointeurs vers les chaînes à comparer.
- *
- * Retour :
- *   Un entier négatif, nul ou positif selon que a est respectivement
- *   inférieur, égal ou supérieur à b (sans tenir compte de la casse).
- */
-int caseInsensitiveCompare(const void *a, const void *b) {
-    const char *str1 = *(const char **)a;
-    const char *str2 = *(const char **)b;
-    return strcasecmp(str1, str2);
-}
+
 
 /*
- * Fonction : loadDictionary
- * --------------------------
- * Charge un dictionnaire depuis un fichier texte (chaque ligne représente un mot).
- * Les mots sont stockés dans un tableau de chaînes qui est ensuite trié de façon insensible à la casse.
+ * Fonction : loadDictionaryHash
+ * -----------------------------
+ * Charge un dictionnaire depuis un fichier texte dans une table de hachage.
+ * Chaque mot du fichier est stocké dans une structure `DictionaryEntry`
+ * et ajouté à la table de hachage `dictionary` pour une recherche rapide.
  *
- * Paramètres :
- *   filename  : nom du fichier dictionnaire.
- *   outCount  : pointeur vers un entier dans lequel sera stocké le nombre de mots chargés.
+ * Paramètre :
+ *   filename : nom du fichier contenant la liste des mots (1 mot par ligne).
  *
  * Retour :
- *   Un tableau de chaînes (char **) contenant les mots, ou NULL en cas d'erreur.
+ *   Un pointeur vers la table de hachage contenant les mots du dictionnaire.
  */
-char **loadDictionary(const char *filename, int *outCount) {
+DictionaryEntry* loadDictionaryHash(const char *filename) {
+    // Ouvre le fichier en mode lecture
     FILE *fp = fopen(filename, "r");
     if (!fp) {
         fprintf(stderr, "Erreur d'ouverture du fichier %s\n", filename);
-        return NULL;
+        exit(EXIT_FAILURE);
     }
-    int capacity = 100;  // Capacité initiale du tableau
-    int count = 0;       // Nombre de mots chargés
-    char **words = malloc(capacity * sizeof(char *));
-    if (!words) {
-        fclose(fp);
-        return NULL;
-    }
-    char buffer[100];
-    // Lecture du fichier ligne par ligne
+
+    DictionaryEntry *dictionary = NULL; // Table de hachage initialisée à NULL
+    char buffer[100];  // Buffer pour stocker chaque mot lu
+
+    // Lit le fichier ligne par ligne
     while (fgets(buffer, sizeof(buffer), fp)) {
-        // Supprime le saut de ligne en fin de chaîne
-        buffer[strcspn(buffer, "\n")] = '\0';
-        // Duplique la chaîne et la stocke dans le tableau
-        words[count] = strdup(buffer);
-        if (!words[count]) {
-            // En cas d'erreur, libère la mémoire allouée
-            for (int i = 0; i < count; i++)
-                free(words[i]);
-            free(words);
-            fclose(fp);
-            return NULL;
+        buffer[strcspn(buffer, "\n")] = '\0'; // Supprime le saut de ligne final
+
+        // Alloue une nouvelle entrée pour le mot
+        DictionaryEntry *entry = malloc(sizeof(DictionaryEntry));
+        if (!entry) {
+            fprintf(stderr, "Erreur d'allocation mémoire.\n");
+            exit(EXIT_FAILURE);
         }
-        count++;
-        // Si le tableau est plein, on double sa capacité
-        if (count >= capacity) {
-            capacity *= 2;
-            char **temp = realloc(words, capacity * sizeof(char *));
-            if (!temp) {
-                for (int i = 0; i < count; i++)
-                    free(words[i]);
-                free(words);
-                fclose(fp);
-                return NULL;
-            }
-            words = temp;
-        }
+
+        // Copie le mot dans la structure et s'assure que la chaîne est bien terminée
+        strncpy(entry->word, buffer, sizeof(entry->word));
+        entry->word[sizeof(entry->word) - 1] = '\0';
+
+        // Ajoute l'entrée à la table de hachage
+        HASH_ADD_STR(dictionary, word, entry);
     }
-    fclose(fp);
-    // Trie les mots de façon insensible à la casse
-    qsort(words, count, sizeof(char *), caseInsensitiveCompare);
-    *outCount = count;
-    return words;
+
+    fclose(fp);  // Ferme le fichier
+    return dictionary;  // Retourne la table de hachage remplie
 }
 
 /*
- * Fonction : binarySearch
- * ------------------------
- * Effectue une recherche dichotomique dans un tableau trié de chaînes.
+ * Fonction : isValidWordHash
+ * --------------------------
+ * Vérifie si un mot est présent dans le dictionnaire stocké sous forme de table de hachage.
  *
  * Paramètres :
- *   array  : le tableau de chaînes trié.
- *   size   : le nombre d'éléments dans le tableau.
- *   target : la chaîne recherchée.
+ *   word       : le mot à rechercher.
+ *   dictionary : la table de hachage contenant les mots valides.
  *
  * Retour :
- *   L'indice de la chaîne dans le tableau si elle est trouvée, -1 sinon.
+ *   true si le mot est trouvé dans la table de hachage, false sinon.
  */
-int binarySearch(char **array, int size, const char *target) {
-    int low = 0;
-    int high = size - 1;
-    while (low <= high) {
-        int mid = (low + high) / 2;
-        int cmp = strcasecmp(array[mid], target);
-        if (cmp == 0)
-            return mid;
-        else if (cmp < 0)
-            low = mid + 1;
-        else
-            high = mid - 1;
-    }
-    return -1;
+bool isValidWordHash(const char *word, DictionaryEntry *dictionary) {
+    DictionaryEntry *entry;
+
+    // Recherche du mot dans la table de hachage
+    HASH_FIND_STR(dictionary, word, entry);
+
+    // Retourne true si le mot est trouvé, false sinon
+    return entry != NULL;
 }
 
-/*
- * Fonction : isValidWordBinary
- * ----------------------------
- * Vérifie si un mot existe dans le dictionnaire en effectuant une recherche dichotomique.
- *
- * Paramètres :
- *   word            : le mot à vérifier.
- *   dictionary      : le tableau de mots du dictionnaire.
- *   dictionaryCount : le nombre de mots dans le dictionnaire.
- *
- * Retour :
- *   true si le mot est trouvé, false sinon.
- */
-bool isValidWordBinary(const char *word, char **dictionary, int dictionaryCount) {
-    return binarySearch(dictionary, dictionaryCount, word) >= 0;
-}
+
+
+
 
 /*
  * Fonction : validatePlacement
@@ -427,7 +383,7 @@ bool isValidWordBinary(const char *word, char **dictionary, int dictionaryCount)
  *   true si le placement est valide (tous les mots croisés sont valides), false sinon.
  */
 bool validatePlacement(const char *word, int startX, int startY, char dir,
-                       char **board, int boardSize, char **dictionary, int dictionaryCount) {
+                       char **board, int boardSize, DictionaryEntry *dictionary) {
     int len = strlen(word);
     bool valid = true;
 
@@ -485,7 +441,7 @@ bool validatePlacement(const char *word, int startX, int startY, char dir,
                     cross[idx++] = tempBoard[k][x];
                 }
                 cross[idx] = '\0';
-                if (!isValidWordBinary(cross, dictionary, dictionaryCount)) {
+                if (!isValidWordHash(cross, dictionary)) {
                     valid = false;
                     goto cleanup;
                 }
@@ -503,7 +459,7 @@ bool validatePlacement(const char *word, int startX, int startY, char dir,
                     cross[idx++] = tempBoard[y][k];
                 }
                 cross[idx] = '\0';
-                if (!isValidWordBinary(cross, dictionary, dictionaryCount)) {
+                if (!isValidWordHash(cross, dictionary)) {
                     valid = false;
                     goto cleanup;
                 }
@@ -833,9 +789,8 @@ int main(int argc, char* argv[]) {
     srand(time(NULL));
 
     // Chargement du dictionnaire depuis le fichier "mots_filtres.txt"
-    int dictionaryCount = 0;
-    char **dictionary = loadDictionary("mots_filtres.txt", &dictionaryCount);
-    if (!dictionary) {
+    DictionaryEntry *dictionaryHash = loadDictionaryHash("mots_filtres.txt");
+    if (!dictionaryHash) {
         fprintf(stderr, "Erreur lors du chargement du dictionnaire.\n");
         return EXIT_FAILURE;
     }
@@ -1069,7 +1024,7 @@ int main(int argc, char* argv[]) {
                             // Si aucun texte n'a été saisi, revient à l'état idle
                             currentState = STATE_IDLE;
                         }
-                        else if (!isValidWordBinary(inputBuffer, dictionary, dictionaryCount)) {
+                        else if (!isValidWordHash(inputBuffer, dictionaryHash)) {
                             // Si le mot n'est pas dans le dictionnaire, affiche une erreur dans la console
                             fprintf(stderr, "Mot invalide: %s\n", inputBuffer);
                             inputBuffer[0] = '\0';
@@ -1093,7 +1048,7 @@ int main(int argc, char* argv[]) {
                                 }
                                 int score = getLetterScore(inputBuffer[0]) * letterMultiplier;
                                 score *= wordMultiplier;
-                                if (validatePlacement(inputBuffer, selectedCellX, selectedCellY, 'h', board, boardSize, dictionary, dictionaryCount)) {
+                                if (validatePlacement(inputBuffer, selectedCellX, selectedCellY, 'h', board, boardSize, dictionaryHash)) {
                                     lastWordScore = score;
                                     totalPoints += score;
                                     placeWord(inputBuffer, selectedCellX, selectedCellY, 'h', board, rack);
@@ -1121,7 +1076,7 @@ int main(int argc, char* argv[]) {
                     char dir = tolower((char)e.key.keysym.sym);
                     if (dir == 'h' || dir == 'v') {
                         if (canPlaceWord(inputBuffer, selectedCellX, selectedCellY, dir, board, boardSize, rack, totalPoints)) {
-                            if (!validatePlacement(inputBuffer, selectedCellX, selectedCellY, dir, board, boardSize, dictionary, dictionaryCount)) {
+                            if (!validatePlacement(inputBuffer, selectedCellX, selectedCellY, dir, board, boardSize, dictionaryHash)) {
                                 fprintf(stderr, "Placement invalide: un mot croisé n'existe pas\n");
                                 currentState = STATE_IDLE;
                             } else {
@@ -1151,7 +1106,7 @@ int main(int argc, char* argv[]) {
                                 lastWordScore = score;
                                 totalPoints += score;
                                 placeWord(inputBuffer, selectedCellX, selectedCellY, dir, board, rack);
-                                for (int i = 0; i < strlen(inputBuffer); i++) {
+                                for (int i = 0; i < (int)strlen(inputBuffer); i++) {
                                     int x = selectedCellX, y = selectedCellY;
                                     if (dir == 'h')
                                         x += i;
@@ -1261,11 +1216,13 @@ int main(int argc, char* argv[]) {
         free(board[i]);
     free(board);
 
-    // Libération de la mémoire allouée pour le dictionnaire
-    for (int i = 0; i < dictionaryCount; i++) {
-        free(dictionary[i]);
+    // Libération de la mémoire allouée pour le dictionnaire (table de hachage)
+    DictionaryEntry *current, *tmp;
+    HASH_ITER(hh, dictionaryHash, current, tmp) {
+        HASH_DEL(dictionaryHash, current);  // Supprime l'entrée de la table
+        free(current);  // Libère la mémoire allouée
     }
-    free(dictionary);
+
 
     // Fermeture et libération des polices
     TTF_CloseFont(valueFont);
