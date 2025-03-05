@@ -744,22 +744,19 @@ void drawRack(SDL_Renderer *renderer, TTF_Font *rackFont, TTF_Font *valueFont,
  *   currentState : l'état de saisie actuel (STATE_IDLE, STATE_INPUT_TEXT, STATE_INPUT_DIRECTION).
  *   inputBuffer  : le texte actuellement saisi par l'utilisateur.
  */
-void drawInputArea(SDL_Renderer *renderer, TTF_Font *inputFont, InputState currentState, char *inputBuffer) {
-    // Définition du rectangle de la zone de saisie
-    SDL_Rect inputRect = { 0, BOARD_HEIGHT + SCRABBLE_RACK_HEIGHT, WINDOW_WIDTH, INPUT_AREA_HEIGHT };
-    SDL_SetRenderDrawColor(renderer, INPUT_BG_COLOR.r, INPUT_BG_COLOR.g, INPUT_BG_COLOR.b, INPUT_BG_COLOR.a);
-    SDL_RenderFillRect(renderer, &inputRect);
-    
-    // Prépare le texte d'invite en fonction de l'état de saisie
+void drawInputArea(SDL_Renderer *renderer, TTF_Font *inputFont, InputState currentState, char *inputBuffer, int totalPoints) {
+  SDL_Rect inputRect = { 0, BOARD_HEIGHT + SCRABBLE_RACK_HEIGHT, WINDOW_WIDTH, INPUT_AREA_HEIGHT };
+  SDL_SetRenderDrawColor(renderer, INPUT_BG_COLOR.r, INPUT_BG_COLOR.g, INPUT_BG_COLOR.b, INPUT_BG_COLOR.a);
+  SDL_RenderFillRect(renderer, &inputRect);
     char displayText[100];
     if (currentState == STATE_IDLE) {
-        // Affiche un message indiquant que le premier mot doit passer par la case centrale
-        snprintf(displayText, sizeof(displayText), "Entrez un mot (premier mot déjà sur la case centrale)");
+        if (totalPoints == 0)
+            snprintf(displayText, sizeof(displayText), "Cliquez pour choisir une case (1er mot doit passer par le milieu)");
+        else
+            snprintf(displayText, sizeof(displayText), "Cliquez pour choisir une case");
     } else if (currentState == STATE_INPUT_TEXT) {
-        // Affiche le texte saisi jusqu'à présent
         snprintf(displayText, sizeof(displayText), "Entrez un mot: %s", inputBuffer);
     } else if (currentState == STATE_INPUT_DIRECTION) {
-        // Demande la direction de placement
         snprintf(displayText, sizeof(displayText), "Entrez la direction (h/v): ");
     }
     // Rend le texte de l'invite dans la zone de saisie
@@ -953,10 +950,10 @@ int main(int argc, char* argv[]) {
     int startXRack = (WINDOW_WIDTH - totalRackWidth) / 2;
 
     // Pour le premier mot, on force la sélection de la case centrale
-    selectedCellX = boardSize / 2;
-    selectedCellY = boardSize / 2;
-    currentState = STATE_INPUT_TEXT;  // Passe en mode saisie texte
-    SDL_StartTextInput();             // Démarre la saisie de texte via SDL
+    //selectedCellX = boardSize / 2;
+    //selectedCellY = boardSize / 2;
+    //currentState = STATE_INPUT_TEXT;  // Passe en mode saisie texte
+    //SDL_StartTextInput();             // Démarre la saisie de texte via SDL
 
     // Boucle principale du programme
     bool quit = false;
@@ -1135,7 +1132,8 @@ int main(int argc, char* argv[]) {
         // 3. Dessine le rack (chevalet) et le bouton "Echanger"
         drawRack(renderer, rackFont, valueFont, rack, rackAreaWidth, startXRack, buttonMargin, buttonWidth, buttonHeight, inputFont);
         // 4. Dessine la zone de saisie en bas de la fenêtre
-        drawInputArea(renderer, inputFont, currentState, inputBuffer);
+        drawInputArea(renderer, inputFont, currentState, inputBuffer, totalPoints);
+
         
         // 5. Affiche le score du dernier mot dans le coin supérieur droit
         {
