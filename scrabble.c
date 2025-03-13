@@ -474,6 +474,169 @@ cleanup:
     return valid;
 }
 
+
+
+
+
+int recalcTotalScore(char **board, int boardSize) {
+    int total = 0;
+
+    // Parcours horizontal (ligne par ligne)
+    for (int i = 0; i < boardSize; i++) {
+        int j = 0;
+        while (j < boardSize) {
+            // Ignore les cases vides
+            while (j < boardSize && board[i][j] == ' ') {
+                j++;
+            }
+            int start = j;
+            int wordScore = 0;
+            // Construit le mot horizontal en cours
+            while (j < boardSize && board[i][j] != ' ') {
+                wordScore += getLetterScore(board[i][j]);
+                j++;
+            }
+            // Si le mot comporte au moins 2 lettres, on l’ajoute
+            if (j - start > 1) {
+                total += wordScore;
+            }
+        }
+    }
+
+    // Parcours vertical (colonne par colonne)
+    for (int j = 0; j < boardSize; j++) {
+        int i = 0;
+        while (i < boardSize) {
+            // Ignore les cases vides
+            while (i < boardSize && board[i][j] == ' ') {
+                i++;
+            }
+            int start = i;
+            int wordScore = 0;
+            // Construit le mot vertical en cours
+            while (i < boardSize && board[i][j] != ' ') {
+                wordScore += getLetterScore(board[i][j]);
+                i++;
+            }
+            // Si le mot comporte au moins 2 lettres, on l’ajoute
+            if (i - start > 1) {
+                total += wordScore;
+            }
+        }
+    }
+
+    return total;
+}
+
+
+
+
+
+
+
+// =======================================
+// Fonction : findBestMove
+// =======================================
+void findBestMove(char **board, int boardSize,
+    DictionaryEntry *dictionary,
+    char *rack, 
+    int *totalPoints,
+    int bonusBoard[15][15])
+{
+int bestScore = 0;
+char bestWord[100] = "";
+int bestX = -1, bestY = -1;
+char bestDir = 'h';
+
+// Parcours du dictionnaire via HASH_ITER
+DictionaryEntry *entry, *tmp;
+HASH_ITER(hh, dictionary, entry, tmp) {
+const char *word = entry->word;
+int len = strlen(word);
+if (len > boardSize) continue;
+
+// Parcours de chaque case du plateau
+for (int y = 0; y < boardSize; y++) {
+for (int x = 0; x < boardSize; x++) {
+  // Test sur les deux orientations : horizontal ('h') et vertical ('v')
+  for (int d = 0; d < 2; d++) {
+      char dir = (d == 0) ? 'h' : 'v';
+      
+      if (canPlaceWord(word, x, y, dir, board, boardSize, rack, *totalPoints)) {
+          if (validatePlacement(word, x, y, dir, board, boardSize, dictionary)) {
+              int currentScore = 0;
+              int wordMultiplier = 1;
+              for (int i = 0; i < len; i++) {
+                  int xx = x, yy = y;
+                  if (dir == 'h') {
+                      xx += i;
+                  } else {
+                      yy += i;
+                  }
+                  if (board[yy][xx] == ' ') {
+                      int bonus = bonusBoard[yy][xx];
+                      int letterMult = 1;
+                      switch (bonus) {
+                          case 1: // triple-mot
+                              wordMultiplier *= 3;
+                              break;
+                          case 2: // double-mot
+                              wordMultiplier *= 2;
+                              break;
+                          case 3: // triple-lettre
+                              letterMult = 3;
+                              break;
+                          case 4: // double-lettre
+                              letterMult = 2;
+                              break;
+                          default:
+                              break;
+                      }
+                      currentScore += getLetterScore(toupper(word[i])) * letterMult;
+                  } else {
+                      currentScore += getLetterScore(board[yy][xx]);
+                  }
+              }
+              currentScore *= wordMultiplier;
+              if (currentScore > bestScore) {
+                  bestScore = currentScore;
+                  strcpy(bestWord, word);
+                  bestX = x;
+                  bestY = y;
+                  bestDir = dir;
+              }
+          }
+      }
+  }
+}
+}
+}
+
+if (bestScore > 0) {
+placeWord(bestWord, bestX, bestY, bestDir, board, rack);
+// Désactivation des bonus pour les cases utilisées
+int len = strlen(bestWord);
+for (int i = 0; i < len; i++) {
+int xx = bestX, yy = bestY;
+if (bestDir == 'h') xx += i;
+else yy += i;
+bonusBoard[yy][xx] = 0;
+}
+// Mettre à jour le score total (choix : recalcul complet)
+*totalPoints += bestScore;
+printf("[IA] Meilleur coup : %s (%c) en (%d, %d) -> %d points\n",
+ bestWord, bestDir, bestX, bestY, bestScore);
+} else {
+printf("[IA] Aucun coup optimal trouvé...\n");
+}
+}
+
+
+
+
+
+
+
 //
 // ---------------------- Fonctions de rendu graphique ------------------------
 //
@@ -731,6 +894,28 @@ void drawRack(SDL_Renderer *renderer, TTF_Font *rackFont, TTF_Font *valueFont,
         SDL_DestroyTexture(btnTexture);
         SDL_FreeSurface(btnSurface);
     }
+
+    // === Ajout du bouton "Meilleur Coup" ===
+    int bestMoveButtonX = buttonX + buttonWidth + 10; // 10px d'écart à droite de "Echanger"
+    int bestMoveButtonY = buttonY;
+    int bestMoveButtonWidth = 120;  // Largeur fixe (modifiable)
+    int bestMoveButtonHeight = buttonHeight; // Même hauteur que "Echanger"
+    SDL_Rect bestMoveRect = { bestMoveButtonX, bestMoveButtonY, bestMoveButtonWidth, bestMoveButtonHeight };
+    SDL_SetRenderDrawColor(renderer, 0, 128, 0, 255); // Vert
+    SDL_RenderFillRect(renderer, &bestMoveRect);
+
+    SDL_Surface *bestSurface = TTF_RenderUTF8_Blended(inputFont, "IA", TEXT_COLOR);
+    if (bestSurface) {
+        SDL_Texture *bestTexture = SDL_CreateTextureFromSurface(renderer, bestSurface);
+        int bmW, bmH;
+        SDL_QueryTexture(bestTexture, NULL, NULL, &bmW, &bmH);
+        int bmTextX = bestMoveButtonX + (bestMoveButtonWidth - bmW) / 2;
+        int bmTextY = bestMoveButtonY + (bestMoveButtonHeight - bmH) / 2;
+        SDL_Rect bmRect = { bmTextX, bmTextY, bmW, bmH };
+        SDL_RenderCopy(renderer, bestTexture, NULL, &bmRect);
+        SDL_DestroyTexture(bestTexture);
+        SDL_FreeSurface(bestSurface);
+    }
 }
 
 /*
@@ -757,7 +942,7 @@ void drawInputArea(SDL_Renderer *renderer, TTF_Font *inputFont, InputState curre
     } else if (currentState == STATE_INPUT_TEXT) {
         snprintf(displayText, sizeof(displayText), "Entrez un mot: %s", inputBuffer);
     } else if (currentState == STATE_INPUT_DIRECTION) {
-        snprintf(displayText, sizeof(displayText), "Entrez la direction (h/v): ");
+        snprintf(displayText, sizeof(displayText), "Entrez la direction du mot (h/v): ");
     }
     // Rend le texte de l'invite dans la zone de saisie
     SDL_Surface *promptSurface = TTF_RenderUTF8_Blended(inputFont, displayText, TEXT_COLOR);
@@ -980,10 +1165,12 @@ int main(int argc, char* argv[]) {
                         inputLength = 0;
                         SDL_StartTextInput();
                     }
-                    // Vérifie si le clic se situe dans la zone du rack (pour échanger les jetons)
+                    // Sinon, vérifie si le clic se situe dans la zone du rack
                     else if (mouseY >= BOARD_HEIGHT && mouseY < (BOARD_HEIGHT + SCRABBLE_RACK_HEIGHT)) {
+                        // Coordonnées et dimensions du bouton "Echanger"
                         int buttonX = startXRack + rackAreaWidth + buttonMargin;
                         int buttonY = BOARD_HEIGHT + (SCRABBLE_RACK_HEIGHT - buttonHeight) / 2;
+                        // Si le clic est sur le bouton "Echanger"
                         if (mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
                             mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
                             // Rafraîchit le rack avec 7 nouvelles lettres
@@ -991,6 +1178,16 @@ int main(int argc, char* argv[]) {
                                 rack[i] = drawRandomLetter();
                             }
                             rack[7] = '\0';
+                        }
+                        // Vérification du clic sur le bouton "Meilleur Coup"
+                        int bestMoveButtonX = buttonX + buttonWidth + 10; // Bouton "Meilleur Coup" placé à droite de "Echanger" avec un décalage de 10 px
+                        int bestMoveButtonY = buttonY;
+                        int bestMoveButtonWidth = 120;  // Doit correspondre à la largeur définie dans drawRack()
+                        int bestMoveButtonHeight = buttonHeight;
+                        if (mouseX >= bestMoveButtonX && mouseX < bestMoveButtonX + bestMoveButtonWidth &&
+                            mouseY >= bestMoveButtonY && mouseY < bestMoveButtonY + bestMoveButtonHeight) {
+                            // Appel de la fonction qui trouve et place le meilleur coup
+                            findBestMove(board, boardSize, dictionaryHash, rack, &totalPoints, bonusBoard);
                         }
                     }
                 }
@@ -1046,10 +1243,10 @@ int main(int argc, char* argv[]) {
                                 int score = getLetterScore(inputBuffer[0]) * letterMultiplier;
                                 score *= wordMultiplier;
                                 if (validatePlacement(inputBuffer, selectedCellX, selectedCellY, 'h', board, boardSize, dictionaryHash)) {
-                                    lastWordScore = score;
-                                    totalPoints += score;
-                                    placeWord(inputBuffer, selectedCellX, selectedCellY, 'h', board, rack);
-                                    bonusBoard[selectedCellY][selectedCellX] = 0;
+                                  lastWordScore = score;
+                                  placeWord(inputBuffer, selectedCellX, selectedCellY, 'h', board, rack);
+                                  bonusBoard[selectedCellY][selectedCellX] = 0;
+                                  totalPoints = recalcTotalScore(board, boardSize);
                                 } else {
                                     fprintf(stderr, "Placement invalide: un mot croisé n'existe pas\n");
                                 }
