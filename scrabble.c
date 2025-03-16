@@ -154,94 +154,101 @@ char drawRandomLetter() {
  *   true si le mot peut être placé, false sinon.
  */
 bool canPlaceWord(const char *word, int startX, int startY, char dir,
-                  char **board, int boardSize, const char *rack, int totalPoints) {
-    bool intersects = false;           // Indique si le mot croise (ou touche) une lettre déjà présente
-    bool passesThroughCenter = false;  // Indique si le mot passe par la case centrale
-    int freq[26] = {0};                // Occurrences des lettres disponibles sur le rack
+    char **board, int boardSize, const char *rack, int totalPoints) {
+bool intersects = false;           // Indique si le mot croise (ou touche) une lettre déjà présente
+bool passesThroughCenter = false;  // Indique si le mot passe par la case centrale
+int freq[26] = {0};                // Occurrences des lettres disponibles sur le rack
 
-    // Remplit le tableau de fréquences avec les lettres du rack (en majuscules)
-    for (int i = 0; i < 7; i++) {
-        char c = rack[i];
-        if (c >= 'A' && c <= 'Z')
-            freq[c - 'A']++;
-    }
-
-    int len = strlen(word);
-
-    // Vérifie la case immédiatement avant le début du mot (si elle existe)
-    if (dir == 'h') {
-        if (startX > 0 && board[startY][startX - 1] != ' ')
-            return false;
-    } else { // placement vertical
-        if (startY > 0 && board[startY - 1][startX] != ' ')
-            return false;
-    }
-
-    // Parcourt chaque lettre du mot à placer
-    for (int i = 0; i < len; i++) {
-        int x = startX, y = startY;
-        // Calcule la position de la lettre selon la direction
-        if (dir == 'h')
-            x += i;
-        else
-            y += i;
-
-        // Vérifie que la position est bien dans les limites du plateau
-        if (x < 0 || x >= boardSize || y < 0 || y >= boardSize)
-            return false;
-
-        char boardLetter = board[y][x];         // Lettre déjà présente sur le plateau (si non vide)
-        char wordLetter = toupper(word[i]);       // Lettre du mot en majuscule
-
-        if (boardLetter == ' ') {
-            // Si la case est vide, on doit avoir la lettre sur le rack
-            if (freq[wordLetter - 'A'] <= 0)
-                return false;
-            freq[wordLetter - 'A']--;  // Consomme une occurrence de la lettre
-
-            // Vérifie les connexions perpendiculaires
-            if (dir == 'h') {
-                // Pour une pose horizontale, regarde au-dessus et en-dessous
-                if ((y > 0 && board[y - 1][x] != ' ') ||
-                    (y < boardSize - 1 && board[y + 1][x] != ' '))
-                    intersects = true;
-            } else { // placement vertical
-                // Pour une pose verticale, regarde à gauche et à droite
-                if ((x > 0 && board[y][x - 1] != ' ') ||
-                    (x < boardSize - 1 && board[y][x + 1] != ' '))
-                    intersects = true;
-            }
-        } else {
-            // Si la case n'est pas vide, la lettre doit correspondre
-            if (toupper(boardLetter) != wordLetter)
-                return false;
-            intersects = true;
-        }
-        // Vérifie si la lettre se trouve sur la case centrale du plateau
-        if (x == boardSize / 2 && y == boardSize / 2)
-            passesThroughCenter = true;
-    }
-
-    // Vérifie la case immédiatement après la fin du mot (si elle existe)
-    if (dir == 'h') {
-        int endX = startX + len;
-        if (endX < boardSize && board[startY][endX] != ' ')
-            return false;
-    } else { // placement vertical
-        int endY = startY + len;
-        if (endY < boardSize && board[endY][startX] != ' ')
-            return false;
-    }
-
-    // Pour un coup ultérieur, le mot doit toucher au moins une lettre déjà présente
-    if (totalPoints > 0 && !intersects)
-        return false;
-    // Pour le premier coup, le mot doit passer par la case centrale
-    if (totalPoints == 0 && !passesThroughCenter)
-        return false;
-
-    return true;
+// Remplit le tableau de fréquences avec les lettres du rack (en majuscules)
+for (int i = 0; i < 7; i++) {
+char c = rack[i];
+if (c >= 'A' && c <= 'Z')
+freq[c - 'A']++;
 }
+
+int len = strlen(word);
+bool newLetterPlaced = false;      // Nouvel indicateur : au moins une lettre doit être placée dans une case vide
+
+// Vérifie la case immédiatement avant le début du mot (si elle existe)
+if (dir == 'h') {
+if (startX > 0 && board[startY][startX - 1] != ' ')
+return false;
+} else { // placement vertical
+if (startY > 0 && board[startY - 1][startX] != ' ')
+return false;
+}
+
+// Parcourt chaque lettre du mot à placer
+for (int i = 0; i < len; i++) {
+int x = startX, y = startY;
+// Calcule la position de la lettre selon la direction (horizontale ou verticale)
+if (dir == 'h')
+x += i;
+else
+y += i;
+
+// Vérifie que la position reste dans les limites du plateau
+if (x < 0 || x >= boardSize || y < 0 || y >= boardSize)
+return false;
+
+char boardLetter = board[y][x];         // Lettre déjà présente sur le plateau (si la case n'est pas vide)
+char wordLetter = toupper(word[i]);       // Lettre du mot (convertie en majuscule)
+
+if (boardLetter == ' ') {
+// Si la case est vide, il faut que le rack contienne la lettre
+if (freq[wordLetter - 'A'] <= 0)
+  return false;
+freq[wordLetter - 'A']--;  // Consomme une occurrence de la lettre du rack
+newLetterPlaced = true;    // Marque qu'une nouvelle lettre sera placée
+
+// Vérifie les connexions perpendiculaires pour détecter un contact avec d'autres mots
+if (dir == 'h') {
+  // Pour une pose horizontale, vérifie au-dessus et en-dessous
+  if ((y > 0 && board[y - 1][x] != ' ') ||
+      (y < boardSize - 1 && board[y + 1][x] != ' '))
+      intersects = true;
+} else { // placement vertical
+  // Pour une pose verticale, vérifie à gauche et à droite
+  if ((x > 0 && board[y][x - 1] != ' ') ||
+      (x < boardSize - 1 && board[y][x + 1] != ' '))
+      intersects = true;
+}
+} else {
+// Si la case n'est pas vide, la lettre existante doit correspondre à celle du mot
+if (toupper(boardLetter) != wordLetter)
+  return false;
+intersects = true;
+}
+// Vérifie si la case courante est la case centrale
+if (x == boardSize / 2 && y == boardSize / 2)
+passesThroughCenter = true;
+}
+
+// Vérifie la case immédiatement après la fin du mot (si elle existe)
+if (dir == 'h') {
+int endX = startX + len;
+if (endX < boardSize && board[startY][endX] != ' ')
+return false;
+} else { // placement vertical
+int endY = startY + len;
+if (endY < boardSize && board[endY][startX] != ' ')
+return false;
+}
+
+// Nouveau contrôle : il faut qu'au moins une lettre nouvelle soit placée (case vide utilisée)
+if (!newLetterPlaced)
+return false;
+
+// Pour un coup ultérieur, le mot doit toucher au moins une lettre déjà présente
+if (totalPoints > 0 && !intersects)
+return false;
+// Pour le premier coup, le mot doit passer par la case centrale
+if (totalPoints == 0 && !passesThroughCenter)
+return false;
+
+return true;
+}
+
 
 /*
  * Fonction : placeWord
@@ -819,7 +826,7 @@ void drawBoard(SDL_Renderer *renderer, TTF_Font *boardFont, TTF_Font *valueFont,
  *   rack           : le tableau contenant les lettres du rack.
  *   rackAreaWidth  : largeur de la zone du rack.
  *   SCRABBLE_RACK_HEIGHT    : hauteur de la zone du rack.
- *   startXRack     : position en X de départ pour le rack.
+ *   startXRack     : position en X de départ pour le rack.py
  *   buttonMargin   : marge entre le rack et le bouton.
  *   buttonWidth    : largeur du bouton "Echanger".
  *   buttonHeight   : hauteur du bouton "Echanger".
@@ -1277,6 +1284,7 @@ int main(int argc, char* argv[]) {
                                 int score = 0;
                                 int wordMultiplier = 1;
                                 int len = strlen(inputBuffer);
+                                int tilesUsed = 0; // Compteur pour le nombre de lettres nouvelles placées
                                 for (int i = 0; i < len; i++) {
                                     int x = selectedCellX, y = selectedCellY;
                                     if (dir == 'h')
@@ -1285,6 +1293,7 @@ int main(int argc, char* argv[]) {
                                         y += i;
                                     int letterMultiplier = 1;
                                     if (board[y][x] == ' ') {
+                                        tilesUsed++;  // Incrémente le compteur si la case est vide (lettre tirée du rack)
                                         int bonus = bonusBoard[y][x];
                                         switch(bonus) {
                                             case 1: wordMultiplier *= 3; break;
@@ -1297,6 +1306,12 @@ int main(int argc, char* argv[]) {
                                     score += getLetterScore(inputBuffer[i]) * letterMultiplier;
                                 }
                                 score *= wordMultiplier;
+                                //printf("tilesUsed = %d\n", tilesUsed);
+                                // Si toutes les 7 lettres du rack sont utilisées dans ce coup, ajoute 50 points bonus (Scrabble)
+                                if (tilesUsed == 7) {
+                                    score += 50;
+                                }
+
                                 lastWordScore = score;
                                 totalPoints += score;
                                 placeWord(inputBuffer, selectedCellX, selectedCellY, dir, board, rack);
