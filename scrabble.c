@@ -631,10 +631,10 @@ bonusBoard[yy][xx] = 0;
 }
 // Mettre à jour le score total (choix : recalcul complet)
 *totalPoints += bestScore;
-printf("[IA] Meilleur coup : %s (%c) en (%d, %d) -> %d points\n",
+printf("[Indice] Meilleur coup : %s (%c) en (%d, %d) -> %d points\nRappel pas de bonus 50pts si on fait un scrabble en utilisant l'indice\n",
  bestWord, bestDir, bestX, bestY, bestScore);
 } else {
-printf("[IA] Aucun coup optimal trouvé...\n");
+printf("[Indice] Aucun coup optimal trouvé...\n");
 }
 }
 
@@ -911,7 +911,7 @@ void drawRack(SDL_Renderer *renderer, TTF_Font *rackFont, TTF_Font *valueFont,
     SDL_SetRenderDrawColor(renderer, 0, 128, 0, 255); // Vert
     SDL_RenderFillRect(renderer, &bestMoveRect);
 
-    SDL_Surface *bestSurface = TTF_RenderUTF8_Blended(inputFont, "IA", TEXT_COLOR);
+    SDL_Surface *bestSurface = TTF_RenderUTF8_Blended(inputFont, "Indice", TEXT_COLOR);
     if (bestSurface) {
         SDL_Texture *bestTexture = SDL_CreateTextureFromSurface(renderer, bestSurface);
         int bmW, bmH;

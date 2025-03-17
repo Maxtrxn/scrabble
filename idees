@@ -1,0 +1,41 @@
+Implémenter un mode local (2 joueurs sur le même écran) ou en réseau pour permettre des parties compétitives.
+Ajouter une interface de gestion des tours, avec affichage des scores et des joueurs en cours.
+
+Simuler la "pioche" de lettres en implémentant un sac de lettres (tile bag) qui se vide au fur et à mesure des coups, avec une distribution respectant la fréquence des lettres.
+Permettre aux joueurs d’échanger une partie ou la totalité de leurs lettres, avec la gestion de ce geste dans le score et la pioche.
+
+
+
+Séparer le code en plusieurs modules/fichiers (par exemple, un module pour la logique du jeu, un autre pour le rendu graphique, un pour la gestion du dictionnaire, etc.) afin de faciliter la maintenance et l’évolution du projet.
+
+Réduire le nombre de redraws en ne redessinant que les parties modifiées du plateau plutôt que l’ensemble de la fenêtre à chaque frame (si la complexité le justifie).
+
+
+Implémenter une vérification plus fine des coups légaux (par exemple, s’assurer que tous les mots formés à la fois verticalement et horizontalement sont valides).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+S’assurer que le jeu fonctionne correctement sur différentes plateformes (Linux, Windows, macOS) et avec différentes résolutions d’écran.
+
+
+
+Permettre de revenir en arrière (undo) le dernier coup, ce qui peut être utile pour des parties en mode solo ou pour corriger des erreurs.
+
+Afficher des notifications visuelles (pop-up ou overlay) pour indiquer quand un Scrabble est réalisé (+50 points), un mot est invalide ou lorsqu’un bonus est activé.
+
+
