@@ -8,7 +8,7 @@ CFLAGS = -Wall -Wextra -std=c11 -I/usr/include/SDL2 -g
 LIBS = -lSDL2 -lSDL2_ttf -lm
 
 # Liste des fichiers source
-SRCS = main.c dictionary.c board.c graphics.c
+SRCS = main.c dictionary.c board.c graphics.c utils.c
 
 # Liste des fichiers objets (transforme les fichiers .c en .o)
 OBJS = $(SRCS:.c=.o)

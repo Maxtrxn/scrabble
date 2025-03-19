@@ -9,6 +9,7 @@ extern SDL_Color GRID_COLOR;
 extern SDL_Color TEXT_COLOR;
 extern SDL_Color INPUT_BG_COLOR;
 
+
 // Fonctions d'affichage SDL
 void drawGrid(SDL_Renderer *renderer, int boardSize, int boardDrawWidth, int boardDrawHeight);
 void drawBoard(SDL_Renderer *renderer, TTF_Font *boardFont, TTF_Font *valueFont,
