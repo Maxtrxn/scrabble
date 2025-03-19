@@ -46,6 +46,14 @@ int getLetterScore(char letter) {
     }
 }
 
+
+
+
+
+
+
+
+
 /*
  * Fonction : drawRandomLetter
  * -----------------------------
@@ -79,6 +87,16 @@ char drawRandomLetter() {
     }
     return 'A'; // Valeur par défaut (ne devrait jamais arriver)
 }
+
+
+
+
+
+
+
+
+
+
 
 /*
  * Fonction : canPlaceWord
@@ -204,6 +222,21 @@ return true;
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*
  * Fonction : placeWord
  * ----------------------
@@ -249,6 +282,12 @@ void placeWord(const char *word, int startX, int startY, char dir,
 
 
 
+
+
+
+
+
+
 /*
  * Fonction : validatePlacement
  * ----------------------------
@@ -256,108 +295,118 @@ void placeWord(const char *word, int startX, int startY, char dir,
  * Ensuite, pour chaque lettre nouvellement posée, vérifie le mot perpendiculaire (mot croisé).
  *
  * Paramètres :
- *   word            : le mot à placer.
- *   startX, startY  : la position de départ sur le plateau.
- *   dir             : la direction ('h' ou 'v').
- *   board           : le plateau actuel.
- *   boardSize       : la taille du plateau.
- *   dictionary      : le dictionnaire des mots valides.
- *   dictionaryCount : le nombre de mots dans le dictionnaire.
+ *   word       : le mot à placer.
+ *   startX     : la position de départ en X sur le plateau.
+ *   startY     : la position de départ en Y sur le plateau.
+ *   dir        : la direction ('h' pour horizontal, 'v' pour vertical).
+ *   board      : le plateau actuel.
+ *   boardSize  : la taille du plateau.
+ *   dictionary : le dictionnaire des mots valides.
  *
  * Retour :
  *   true si le placement est valide (tous les mots croisés sont valides), false sinon.
  */
 bool validatePlacement(const char *word, int startX, int startY, char dir,
-    char **board, int boardSize, DictionaryEntry *dictionary) {
-int len = strlen(word);
-bool valid = true;
+                       char **board, int boardSize, DictionaryEntry *dictionary) {
+    int len = strlen(word);
+    bool valid = true;
 
-// Crée une copie temporaire du plateau pour simuler la pose du mot
-char **tempBoard = malloc(boardSize * sizeof(char *));
-if (!tempBoard)
-return false;
-for (int i = 0; i < boardSize; i++) {
-tempBoard[i] = malloc(boardSize * sizeof(char));
-if (!tempBoard[i]) {
-for (int j = 0; j < i; j++)
-free(tempBoard[j]);
-free(tempBoard);
-return false;
-}
-memcpy(tempBoard[i], board[i], boardSize * sizeof(char));
-}
+    // Crée une copie temporaire du plateau pour simuler la pose du mot
+    char **tempBoard = malloc(boardSize * sizeof(char *));
+    if (!tempBoard)
+        return false;
+    
+    for (int i = 0; i < boardSize; i++) {
+        tempBoard[i] = malloc(boardSize * sizeof(char));
+        if (!tempBoard[i]) {
+            for (int j = 0; j < i; j++)
+                free(tempBoard[j]);
+            free(tempBoard);
+            return false;
+        }
+        memcpy(tempBoard[i], board[i], boardSize * sizeof(char));
+    }
 
-// Simule la pose du mot sur la copie temporaire
-for (int i = 0; i < len; i++) {
-int x = startX, y = startY;
-if (dir == 'h')
-x += i;
-else
-y += i;
-// Si la position est hors bornes, le placement est invalide
-if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) {
-valid = false;
-goto cleanup;
-}
-// Si la case est vide, on y écrit la lettre
-if (tempBoard[y][x] == ' ')
-tempBoard[y][x] = toupper(word[i]);
-}
+    // Simule la pose du mot sur la copie temporaire
+    for (int i = 0; i < len; i++) {
+        int x = startX, y = startY;
+        if (dir == 'h')
+            x += i;
+        else
+            y += i;
 
-// Pour chaque lettre du mot placé, on vérifie le mot croisé (perpendiculaire)
-for (int i = 0; i < len; i++) {
-int x = startX, y = startY;
-if (dir == 'h')
-x += i;
-else
-y += i;
-char cross[100];
-int idx = 0;
-if (dir == 'h') {
-// Recherche du mot vertical en colonne x
-int r = y;
-while (r > 0 && tempBoard[r - 1][x] != ' ')
-r--;
-int end = y;
-while (end < boardSize - 1 && tempBoard[end + 1][x] != ' ')
-end++;
-if (end - r + 1 > 1) {
-for (int k = r; k <= end; k++) {
- cross[idx++] = tempBoard[k][x];
-}
-cross[idx] = '\0';
-if (!isValidWordHash(cross, dictionary)) {
- valid = false;
- goto cleanup;
-}
-}
-} else {
-// Recherche du mot horizontal en ligne y
-int c = x;
-while (c > 0 && tempBoard[y][c - 1] != ' ')
-c--;
-int end = x;
-while (end < boardSize - 1 && tempBoard[y][end + 1] != ' ')
-end++;
-if (end - c + 1 > 1) {
-for (int k = c; k <= end; k++) {
- cross[idx++] = tempBoard[y][k];
-}
-cross[idx] = '\0';
-if (!isValidWordHash(cross, dictionary)) {
- valid = false;
- goto cleanup;
-}
-}
-}
-}
+        // Si la position est hors bornes, le placement est invalide
+        if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) {
+            valid = false;
+            goto cleanup;
+        }
+
+        // Si la case est vide, on y écrit la lettre
+        if (tempBoard[y][x] == ' ')
+            tempBoard[y][x] = toupper(word[i]);
+    }
+
+    // Pour chaque lettre du mot placé, on vérifie le mot croisé (perpendiculaire)
+    for (int i = 0; i < len; i++) {
+        int x = startX, y = startY;
+        if (dir == 'h')
+            x += i;
+        else
+            y += i;
+
+        char cross[100];
+        int idx = 0;
+
+        if (dir == 'h') {
+            // Recherche du mot vertical en colonne x
+            int r = y;
+            while (r > 0 && tempBoard[r - 1][x] != ' ')
+                r--;
+            int end = y;
+            while (end < boardSize - 1 && tempBoard[end + 1][x] != ' ')
+                end++;
+
+            if (end - r + 1 > 1) {
+                for (int k = r; k <= end; k++) {
+                    cross[idx++] = tempBoard[k][x];
+                }
+                cross[idx] = '\0';
+                if (!isValidWordHash(cross, dictionary)) {
+                    valid = false;
+                    goto cleanup;
+                }
+            }
+        } else {
+            // Recherche du mot horizontal en ligne y
+            int c = x;
+            while (c > 0 && tempBoard[y][c - 1] != ' ')
+                c--;
+            int end = x;
+            while (end < boardSize - 1 && tempBoard[y][end + 1] != ' ')
+                end++;
+
+            if (end - c + 1 > 1) {
+                for (int k = c; k <= end; k++) {
+                    cross[idx++] = tempBoard[y][k];
+                }
+                cross[idx] = '\0';
+                if (!isValidWordHash(cross, dictionary)) {
+                    valid = false;
+                    goto cleanup;
+                }
+            }
+        }
+    }
+
 cleanup:
-// Libère la mémoire allouée pour la copie temporaire
-for (int i = 0; i < boardSize; i++)
-free(tempBoard[i]);
-free(tempBoard);
-return valid;
+    // Libère la mémoire allouée pour la copie temporaire
+    for (int i = 0; i < boardSize; i++)
+        free(tempBoard[i]);
+    free(tempBoard);
+
+    return valid;
 }
+
 
 
 
@@ -419,100 +468,145 @@ return total;
 
 
 
-// =======================================
-// Fonction : findBestMove
-// =======================================
+
+/*
+ * Fonction : findBestMove
+ * ------------------------
+ * Recherche le meilleur coup possible à jouer avec les lettres disponibles sur le chevalet,
+ * en parcourant le dictionnaire et en testant toutes les positions valides sur le plateau.
+ *
+ * Paramètres :
+ *   board       : le plateau de jeu (tableau de caractères).
+ *   boardSize   : la taille du plateau (généralement 15x15).
+ *   dictionary  : table de hachage contenant tous les mots valides.
+ *   rack        : lettres disponibles sur le chevalet du joueur.
+ *   totalPoints : pointeur vers le score total du joueur (sera mis à jour si un mot est placé).
+ *   bonusBoard  : tableau des bonus de points du plateau (double-mot, triple-lettre, etc.).
+ *
+ * Comportement :
+ *   - Parcours du dictionnaire pour tester chaque mot.
+ *   - Vérification de toutes les positions du plateau pour placer le mot.
+ *   - Évaluation du score pour chaque coup possible en appliquant les bonus.
+ *   - Sélection du meilleur coup trouvé (le plus haut score possible).
+ *   - Placement du mot si un coup valide est trouvé, mise à jour du plateau et du score.
+ *   - Désactivation des bonus pour les cases utilisées.
+ *
+ * Remarques :
+ *   - Cette fonction ne prend pas en compte les échanges de lettres ou les options avancées.
+ *   - Elle ne donne pas de bonus de 50 points pour un Scrabble (pose de toutes les lettres du rack).
+ *   - Si aucun coup n'est trouvé, elle affiche un message d'erreur.
+ */
 void findBestMove(char **board, int boardSize,
     DictionaryEntry *dictionary,
     char *rack, 
     int *totalPoints,
-    int bonusBoard[15][15])
-        {
-        int bestScore = 0;
-        char bestWord[100] = "";
-        int bestX = -1, bestY = -1;
-        char bestDir = 'h';
+    int bonusBoard[15][15]) 
+{
+    int bestScore = 0;        // Meilleur score trouvé
+    char bestWord[100] = "";  // Mot correspondant au meilleur coup
+    int bestX = -1, bestY = -1; // Position du mot sur le plateau
+    char bestDir = 'h';       // Direction du mot ('h' pour horizontal, 'v' pour vertical)
 
-        // Parcours du dictionnaire via HASH_ITER
-        DictionaryEntry *entry, *tmp;
-        HASH_ITER(hh, dictionary, entry, tmp) {
+    // Parcours du dictionnaire via HASH_ITER (balayage de la table de hachage)
+    DictionaryEntry *entry, *tmp;
+    HASH_ITER(hh, dictionary, entry, tmp) {
         const char *word = entry->word;
         int len = strlen(word);
-        if (len > boardSize) continue;
+        if (len > boardSize) continue; // Ignore les mots trop longs pour le plateau
 
-        // Parcours de chaque case du plateau
+        // Parcours chaque case du plateau
         for (int y = 0; y < boardSize; y++) {
             for (int x = 0; x < boardSize; x++) {
                 
-            // Test sur les deux orientations : horizontal ('h') et vertical ('v')
+                // Teste les deux orientations : horizontal ('h') et vertical ('v')
                 for (int d = 0; d < 2; d++) {
-                char dir = (d == 0) ? 'h' : 'v';
+                    char dir = (d == 0) ? 'h' : 'v';
 
-                if (canPlaceWord(word, x, y, dir, board, boardSize, rack, *totalPoints)) {
-                    if (validatePlacement(word, x, y, dir, board, boardSize, dictionary)) {
-                    int currentScore = 0;
-                    int wordMultiplier = 1;
-                    for (int i = 0; i < len; i++) {
-                        int xx = x, yy = y;
-                        if (dir == 'h') {
-                        xx += i;
-                        } else {
-                        yy += i;
+                    // Vérifie si le mot peut être placé à cette position
+                    if (canPlaceWord(word, x, y, dir, board, boardSize, rack, *totalPoints)) {
+                        // Vérifie si les mots croisés générés sont valides
+                        if (validatePlacement(word, x, y, dir, board, boardSize, dictionary)) {
+                            int currentScore = 0;  // Score du mot testé
+                            int wordMultiplier = 1; // Multiplicateur pour les bonus mots
+
+                            // Calcul du score du mot en prenant en compte les bonus
+                            for (int i = 0; i < len; i++) {
+                                int xx = x, yy = y;
+                                if (dir == 'h') {
+                                    xx += i;
+                                } else {
+                                    yy += i;
+                                }
+
+                                // Vérifie si la case est vide (lettre du rack placée)
+                                if (board[yy][xx] == ' ') {
+                                    int bonus = bonusBoard[yy][xx];
+                                    int letterMult = 1;
+                                    switch (bonus) {
+                                        case 1: // Triple-mot
+                                            wordMultiplier *= 3;
+                                            break;
+                                        case 2: // Double-mot
+                                            wordMultiplier *= 2;
+                                            break;
+                                        case 3: // Triple-lettre
+                                            letterMult = 3;
+                                            break;
+                                        case 4: // Double-lettre
+                                            letterMult = 2;
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                    // Applique le multiplicateur de lettre
+                                    currentScore += getLetterScore(toupper(word[i])) * letterMult;
+                                } else {
+                                    // Ajoute directement la valeur de la lettre existante sur le plateau
+                                    currentScore += getLetterScore(board[yy][xx]);
+                                }
+                            }
+
+                            // Applique le multiplicateur de mot final
+                            currentScore *= wordMultiplier;
+
+                            // Vérifie si ce coup est meilleur que le précédent
+                            if (currentScore > bestScore) {
+                                bestScore = currentScore;
+                                strcpy(bestWord, word);
+                                bestX = x;
+                                bestY = y;
+                                bestDir = dir;
+                            }
                         }
-                        if (board[yy][xx] == ' ') {
-                        int bonus = bonusBoard[yy][xx];
-                        int letterMult = 1;
-                        switch (bonus) {
-                            case 1: // triple-mot
-                                wordMultiplier *= 3;
-                                break;
-                            case 2: // double-mot
-                                wordMultiplier *= 2;
-                                break;
-                            case 3: // triple-lettre
-                                letterMult = 3;
-                                break;
-                            case 4: // double-lettre
-                                letterMult = 2;
-                                break;
-                            default:
-                                break;
-                        }
-                        currentScore += getLetterScore(toupper(word[i])) * letterMult;
-                        } else {
-                        currentScore += getLetterScore(board[yy][xx]);
-                        }
-                        }
-                    currentScore *= wordMultiplier;
-                    if (currentScore > bestScore) {
-                    bestScore = currentScore;
-                    strcpy(bestWord, word);
-                    bestX = x;
-                    bestY = y;
-                    bestDir = dir;
                     }
-                    }
-                    }
-                }
                 }
             }
         }
+    }
 
-        if (bestScore > 0) {
+    // Si un coup optimal a été trouvé, le placer sur le plateau
+    if (bestScore > 0) {
         placeWord(bestWord, bestX, bestY, bestDir, board, rack);
-        // Désactivation des bonus pour les cases utilisées
+
+        // Désactive les bonus sur les cases utilisées
         int len = strlen(bestWord);
         for (int i = 0; i < len; i++) {
-        int xx = bestX, yy = bestY;
-        if (bestDir == 'h') xx += i;
-        else yy += i;
-        bonusBoard[yy][xx] = 0;
+            int xx = bestX, yy = bestY;
+            if (bestDir == 'h') xx += i;
+            else yy += i;
+            bonusBoard[yy][xx] = 0; // Efface les bonus après utilisation
         }
-        // Mettre à jour le score total (choix : recalcul complet)
+
+        // Mettre à jour le score total
         *totalPoints += bestScore;
-        printf("[Indice] Meilleur coup : %s (%c) en (%d, %d) -> %d points\nRappel pas de bonus 50pts si on fait un scrabble en utilisant l'indice\n",
-        bestWord, bestDir, bestX, bestY, bestScore);
-        } else {
+
+        // Affichage du coup joué par l'IA
+        printf("[Indice] Meilleur coup : %s (%c) en (%d, %d) -> %d points\n"
+               "Rappel : pas de bonus 50pts si on fait un scrabble en utilisant l'indice\n",
+               bestWord, bestDir, bestX, bestY, bestScore);
+    } else {
+        // Aucun coup trouvé
         printf("[Indice] Aucun coup optimal trouvé...\n");
-        }
-        }
+    }
+}
+

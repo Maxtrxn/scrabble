@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
     // Création de la fenêtre principale
-    SDL_Window *window = SDL_CreateWindow("Scrabble Simplifié",
+    SDL_Window *window = SDL_CreateWindow("Scrabble",
                                           SDL_WINDOWPOS_CENTERED,
                                           SDL_WINDOWPOS_CENTERED,
                                           WINDOW_WIDTH, WINDOW_HEIGHT,
@@ -322,7 +322,9 @@ int main(int argc, char* argv[]) {
                                 int score = 0;
                                 int wordMultiplier = 1;
                                 int len = strlen(inputBuffer);
-                                int tilesUsed = 0; // Compteur pour le nombre de lettres nouvelles placées
+                                int tilesUsed = 0; // Nombre de lettres nouvellement posées
+            
+                                // Calcul du score du mot principal
                                 for (int i = 0; i < len; i++) {
                                     int x = selectedCellX, y = selectedCellY;
                                     if (dir == 'h')
@@ -330,47 +332,117 @@ int main(int argc, char* argv[]) {
                                     else
                                         y += i;
                                     int letterMultiplier = 1;
-                                    if (board[y][x] == ' ') {
-                                        tilesUsed++;  // Incrémente le compteur si la case est vide (lettre tirée du rack)
+                                    if (board[y][x] == ' ') { // Lettre nouvelle
+                                        tilesUsed++;
                                         int bonus = bonusBoard[y][x];
                                         switch(bonus) {
-                                            case 1: wordMultiplier *= 3; break;
-                                            case 2: wordMultiplier *= 2; break;
-                                            case 3: letterMultiplier = 3; break;
-                                            case 4: letterMultiplier = 2; break;
+                                            case 1: wordMultiplier *= 3; break;  // triple mot
+                                            case 2: wordMultiplier *= 2; break;  // double mot
+                                            case 3: letterMultiplier = 3; break; // triple lettre
+                                            case 4: letterMultiplier = 2; break; // double lettre
                                             default: break;
                                         }
                                     }
-                                    score += getLetterScore(inputBuffer[i]) * letterMultiplier;
+                                    score += getLetterScore(toupper(inputBuffer[i])) * letterMultiplier;
                                 }
                                 score *= wordMultiplier;
-                                //printf("tilesUsed = %d\n", tilesUsed);
-                                // Si toutes les 7 lettres du rack sont utilisées dans ce coup, ajoute 50 points bonus (Scrabble)
-                                if (tilesUsed == 7) {
-                                    score += 50;
-                                }
-
-                                lastWordScore = score;
-                                totalPoints += score;
-                                placeWord(inputBuffer, selectedCellX, selectedCellY, dir, board, rack);
-                                for (int i = 0; i < (int)strlen(inputBuffer); i++) {
+                                if (tilesUsed == 7)
+                                    score += 50; // Bonus Scrabble
+            
+                                // Calcul du score des mots perpendiculaires générés
+                                int perpendicularScore = 0;
+                                for (int i = 0; i < len; i++) {
                                     int x = selectedCellX, y = selectedCellY;
                                     if (dir == 'h')
                                         x += i;
                                     else
                                         y += i;
-                                    if (bonusBoard[y][x] != 0)
-                                        bonusBoard[y][x] = 0;
+                                    // On calcule uniquement pour les cases où une lettre sera nouvellement posée
+                                    if (board[y][x] == ' ') {
+                                        int perpWordMultiplier = 1;
+                                        int perpScore = 0;
+                                        if (dir == 'h') {
+                                            // Recherche du mot vertical formé à la position (x, y)
+                                            int startRow = y;
+                                            while (startRow > 0 && board[startRow - 1][x] != ' ')
+                                                startRow--;
+                                            int endRow = y;
+                                            while (endRow < boardSize - 1 && board[endRow + 1][x] != ' ')
+                                                endRow++;
+                                            if (endRow - startRow + 1 > 1) { // Au moins 2 lettres
+                                                for (int r = startRow; r <= endRow; r++) {
+                                                    if (r == y) {
+                                                        int letterMult = 1;
+                                                        int bonus = bonusBoard[y][x];
+                                                        if (bonus == 3)
+                                                            letterMult = 3;
+                                                        else if (bonus == 4)
+                                                            letterMult = 2;
+                                                        if (bonus == 1)
+                                                            perpWordMultiplier *= 3;
+                                                        else if (bonus == 2)
+                                                            perpWordMultiplier *= 2;
+                                                        perpScore += getLetterScore(toupper(inputBuffer[i])) * letterMult;
+                                                    } else {
+                                                        perpScore += getLetterScore(toupper(board[r][x]));
+                                                    }
+                                                }
+                                                perpendicularScore += perpScore * perpWordMultiplier;
+                                            }
+                                        } else { // dir == 'v', calcul du mot horizontal
+                                            int startCol = x;
+                                            while (startCol > 0 && board[y][startCol - 1] != ' ')
+                                                startCol--;
+                                            int endCol = x;
+                                            while (endCol < boardSize - 1 && board[y][endCol + 1] != ' ')
+                                                endCol++;
+                                            if (endCol - startCol + 1 > 1) { // Au moins 2 lettres
+                                                int perpWordMultiplier = 1;
+                                                int perpScore = 0;
+                                                for (int c = startCol; c <= endCol; c++) {
+                                                    if (c == x) {
+                                                        int letterMult = 1;
+                                                        int bonus = bonusBoard[y][x];
+                                                        if (bonus == 3)
+                                                            letterMult = 3;
+                                                        else if (bonus == 4)
+                                                            letterMult = 2;
+                                                        if (bonus == 1)
+                                                            perpWordMultiplier *= 3;
+                                                        else if (bonus == 2)
+                                                            perpWordMultiplier *= 2;
+                                                        perpScore += getLetterScore(toupper(inputBuffer[i])) * letterMult;
+                                                    } else {
+                                                        perpScore += getLetterScore(toupper(board[y][c]));
+                                                    }
+                                                }
+                                                perpendicularScore += perpScore * perpWordMultiplier;
+                                            }
+                                        }
+                                    }
+                                }
+                                score += perpendicularScore;
+                                lastWordScore = score;
+                                totalPoints += score;
+                                placeWord(inputBuffer, selectedCellX, selectedCellY, dir, board, rack);
+                                // Réinitialisation des bonus sur les cases utilisées
+                                for (int i = 0; i < len; i++) {
+                                    int x = selectedCellX, y = selectedCellY;
+                                    if (dir == 'h')
+                                        x += i;
+                                    else
+                                        y += i;
+                                    bonusBoard[y][x] = 0;
                                 }
                             }
                         }
                         currentState = STATE_IDLE;
-                    }
-                    else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    } else if (e.key.keysym.sym == SDLK_ESCAPE) {
                         currentState = STATE_IDLE;
                     }
                 }
             }
+            
         } // Fin de la gestion des événements
 
         // Rendu graphique de toutes les zones
