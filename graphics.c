@@ -263,7 +263,6 @@ void drawRack(SDL_Renderer *renderer, TTF_Font *rackFont, TTF_Font *valueFont,
         SDL_DestroyTexture(btnTexture);
         SDL_FreeSurface(btnSurface);
     }
-
     // === Ajout du bouton "Meilleur Coup" ===
     int bestMoveButtonX = buttonX + buttonWidth + 10; // 10px d'écart à droite de "Echanger"
     int bestMoveButtonY = buttonY;
