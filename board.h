@@ -3,6 +3,9 @@
 
 #include "scrabble.h"
 
+// Déclaration du plateau bonus (défini dans board.c)
+extern int bonusBoard[15][15];
+
 // Fonctions pour la gestion des lettres et du plateau
 int getLetterScore(char letter);
 char drawRandomLetter(void);
